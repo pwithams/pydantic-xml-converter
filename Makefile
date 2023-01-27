@@ -13,23 +13,11 @@ format:
 	poetry run black pydantic_xml tests
 	poetry run isort pydantic_xml tests
 
-type:
-	poetry run mypy dexml
-
-type-strict:
-	poetry run mypy dexml --strict
-
-check:
-	poetry run pylint -j8 -E dexml
-
-style:
-	poetry run pylint dexml --fail-under=8
-
 build:
 	poetry build
 
 update-init:
-	@sed -i "s/__version__ = .*/__version__ = \"$(VERSION)\"/g" dexml/__init__.py
+	@sed -i "s/__version__ = .*/__version__ = \"$(VERSION)\"/g" pydantic_xml/__init__.py
 	git commit -am "v"$(VERSION)
 
 release: update-init build

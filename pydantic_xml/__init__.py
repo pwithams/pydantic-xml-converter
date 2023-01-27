@@ -3,6 +3,8 @@ from typing import Dict
 import xmltodict
 from pydantic import BaseModel
 
+__version__ = "0.0.0"
+
 
 class XmlAttribute(BaseModel):
     key: str
