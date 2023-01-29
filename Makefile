@@ -5,7 +5,7 @@ restore:
 	poetry run pre-commit install
 
 test:
-	poetry run coverage run -m pytest tests -x --show-capture=stdout
+	poetry run coverage run -m pytest tests -x -vvv --show-capture=stdout
 	poetry run coverage report
 
 format:
