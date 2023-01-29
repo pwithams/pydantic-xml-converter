@@ -4,6 +4,7 @@ version = "0.0.2"
 description = ""
 authors = ["Patrick Withams <pwithams@gmail.com>"]
 readme = "README.md"
+repository = "https://github.com/pwithams/pydantic-xml-extension"
 packages = [{include = "pydantic_xml"}]
 
 [tool.poetry.dependencies]
