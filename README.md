@@ -9,7 +9,7 @@ Allows Pydantic models to render to XML.
 ## Examples
 
 ### Generating XML from a model
-```
+```python
 from pydantic_xml import XmlBaseModel, XmlAttribute
 
 class ExampleModel(XmlBaseModel):
@@ -25,7 +25,7 @@ print(model.xml())
 ```
 
 ### Creating a model from XML
-```
+```python
 from pydantic_xml import XmlBaseModel, XmlAttribute
 
 class ExampleModel(XmlBaseModel):
