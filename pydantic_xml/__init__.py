@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 import xmltodict
 from pydantic import BaseModel
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 class XmlAttribute(BaseModel):
