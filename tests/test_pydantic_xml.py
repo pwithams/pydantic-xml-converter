@@ -1,14 +1,20 @@
 import json
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 
 from pydantic import fields
 
 from pydantic_xml import XmlAttribute, XmlBaseModel
 
 
+class ListItem(XmlBaseModel):
+    age: int
+    some_value: Optional[str]
+
+
 class SubModel(XmlBaseModel):
     age: int
     some_value: Optional[str]
+    items: Optional[List[ListItem]]
 
 
 class Model(XmlBaseModel):
@@ -75,6 +81,20 @@ def test_parse_render_xml_nulls():
 
     expected_output_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel></SubModel></Model>'
     assert output == expected_output_xml
+
+
+def test_parse_render_xml_no_nulls_nested():
+    input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel><age>12</age><ListItem><age>12</age></ListItem><ListItem><age>12</age><some_value>test</some_value></ListItem></SubModel></Model>'
+    result = Model.parse_xml(input_xml)
+    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    assert output == input_xml
+
+
+def test_parse_render_xml_nested_attributes():
+    input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel SomeId="1234"><age>12</age><ListItem><age>12</age></ListItem><ListItem id="1234" name="test"><age>12</age><some_value>test</some_value></ListItem></SubModel></Model>'
+    result = Model.parse_xml(input_xml)
+    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    assert output == input_xml
 
 
 def test_parse_render_json():

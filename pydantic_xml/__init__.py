@@ -54,7 +54,7 @@ class XmlBaseModel(BaseModel):
                 if type(base_dict[model_field.alias]) not in [list, dict]:
                     foundation = {"#text": str(base_dict[model_field.alias])}
                 else:
-                    foundation = {alias: base_dict[model_field.alias]}
+                    foundation = base_dict[model_field.alias]
                 base_dict[model_field.alias] = foundation
                 foundation.update(self._xml_attributes[attribute_key].copy().dict())
 
