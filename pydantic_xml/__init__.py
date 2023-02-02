@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Any, Dict, Optional, Tuple
 
 import xmltodict
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import ModelField
 
 __version__ = "0.0.7"
@@ -74,10 +74,17 @@ class XmlBaseModel(BaseModel):
     def get_list_fields(cls):
         fields = []
         for model_field in cls.__fields__.values():
-            if isinstance(model_field.outer_type_, list):
-                fields.append(model_field.alias)
-            elif isinstance(model_field.outer_type_, BaseModel):
-                fields += model_field.outer_type_.get_list_fields()
+            try:
+                if isinstance(model_field.outer_type_(), list):
+                    fields.append(model_field.alias)
+            except ValidationError:
+                pass
+
+            try:
+                if issubclass(model_field.outer_type_, BaseModel):
+                    fields += model_field.type_.get_list_fields()
+            except TypeError:
+                pass
         return fields
 
     @classmethod
@@ -110,7 +117,7 @@ def add_attributes_to_dict(
         attribute_key = None
         if f"{path}{model_field.alias}" in xml_attributes:
             attribute_key = model_field.alias
-        if f"{path}{model_field.name}" in xml_attributes:
+        elif f"{path}{model_field.name}" in xml_attributes:
             attribute_key = model_field.name
 
         attr_path = f"{path}{model_field.alias}."
@@ -122,12 +129,12 @@ def add_attributes_to_dict(
                 attr_path,
             )
             if attribute_key:
-                for attribute in xml_attributes[attribute_key]:
+                for attribute in xml_attributes[attr_path.strip(".")]:
                     foundation.update(attribute.copy().dict())
 
         elif isinstance(foundation, list):
             for index, value in enumerate(foundation):
-                attr_path = f"{path}{model_field.alias}.[{index}]."
+                attr_path = f"{path}{model_field.alias}[{index}]."
                 add_attributes_to_dict(
                     model_field.type_.__fields__.values(),
                     foundation[index],
@@ -190,7 +197,7 @@ def remove_attributes(
                 if isinstance(item, dict):
                     path = key
                     if parent_path:
-                        path = f"{parent_path}.{key}.[{index}]"
+                        path = f"{parent_path}.{key}[{index}]"
                     if key not in new_data:
                         new_data[key] = []
                     result, details = remove_attributes(item, parent_path=path)

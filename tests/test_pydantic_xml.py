@@ -3,21 +3,21 @@ from typing import Annotated, List, Optional
 
 from pydantic import fields
 
-from pydantic_xml import XmlAttribute, XmlBaseModel, remove_nulls_from_dict
+import pydantic_xml as px
 
 
-class ListItem(XmlBaseModel):
+class ListItem(px.XmlBaseModel):
     age: int
     some_value: Optional[str]
 
 
-class SubModel(XmlBaseModel):
+class SubModel(px.XmlBaseModel):
     age: int
     some_value: Optional[str]
     items: Annotated[Optional[List[ListItem]], fields.Field(alias="ListItem")]
 
 
-class Model(XmlBaseModel):
+class Model(px.XmlBaseModel):
     name: Annotated[str, fields.Field(alias="Name")]
     age: int
     optional_field: Annotated[Optional[SubModel], fields.Field(alias="SubModel")]
@@ -25,8 +25,8 @@ class Model(XmlBaseModel):
 
 def test_render_xml():
     m = Model(Name="test", age=12)
-    m.set_xml_attribute("name", XmlAttribute(key="id", value="123"))
-    m.set_xml_attribute("age", XmlAttribute(key="custom", value="value"))
+    m.set_xml_attribute("name", px.XmlAttribute(key="id", value="123"))
+    m.set_xml_attribute("age", px.XmlAttribute(key="custom", value="value"))
     xml_string = m.xml()
     xml_string = xml_string.replace(
         '<?xml version="1.0" encoding="utf-8"?>', ""
@@ -143,5 +143,20 @@ def test_remove_nulls():
         "attr1": 12,
         "attr3": {"attr3.2": [{"list": "value"}, {"list": "value2"}]},
     }
-    remove_nulls_from_dict(data)
+    px.remove_nulls_from_dict(data)
     assert data == expected_response
+
+
+def test_dicts_to_list():
+    data = {
+        "attr1": 12,
+        "attr2": {"some_data": 123},
+        "attr3": {"some_data2": {"test": 123}},
+    }
+    expected_data = {
+        "attr1": 12,
+        "attr2": [{"some_data": 123}],
+        "attr3": [{"some_data2": [{"test": 123}]}],
+    }
+    px.dicts_to_list(data, ["attr2", "attr3", "some_data2"])
+    assert data == expected_data
