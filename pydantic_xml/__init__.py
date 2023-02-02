@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Optional, Tuple
 
 import xmltodict
@@ -29,11 +30,16 @@ class XmlBaseModel(BaseModel):
         allow_population_by_field_name = True
         extra = "allow"
 
-    def dict(self, xml=False, by_alias=True, **kwargs):
+    def dict(self, xml=False, add_root=True, by_alias=True, **kwargs) -> Dict[str, Any]:
         base_dict = super().dict(by_alias=by_alias, **kwargs)
         del base_dict["_xml_attributes"]
+        full_dict = base_dict
+        if add_root:
+            full_dict = {self.get_root_name(): base_dict}
         if not xml:
-            return base_dict
+            return full_dict
+        if not by_alias:
+            raise ValueError("Cannot use by_alias=True with xml=True")
         for key, model_field in self.__fields__.items():
             attribute_key = None
             if model_field.alias in self._xml_attributes:
@@ -48,20 +54,29 @@ class XmlBaseModel(BaseModel):
                 base_dict[model_field.alias] = foundation
                 foundation.update(self._xml_attributes[attribute_key].copy().dict())
 
-        return base_dict
+        return full_dict
+
+    def json(self, pretty=False, **kwargs) -> str:
+        indent = None
+        if pretty:
+            indent = 2
+        return json.dumps(self.dict(**kwargs), indent=indent)
 
     def xml(self, pretty=False) -> str:
         model_as_dict = self.dict(xml=True)
-        root_name = self.__class__.__name__
-        if hasattr(self.Config(), "xml_root_name"):
-            root_name = self.Config().xml_root_name
-        return xmltodict.unparse({root_name: model_as_dict}, pretty=pretty)
+        return xmltodict.unparse(model_as_dict, pretty=pretty)
 
     def set_xml_attribute(self, alias: str, attribute: XmlAttribute) -> None:
         self._xml_attributes[alias] = attribute
 
+    def get_root_name(self) -> str:
+        root_name = self.__class__.__name__
+        if hasattr(self.Config(), "xml_root_name"):
+            root_name = self.Config().xml_root_name
+        return root_name
+
     @classmethod
-    def parse_xml(cls, raw: str):
+    def parse_xml(cls, raw: str) -> "XmlBaseModel":
         data = xmltodict.parse(raw)
         # remove root element
         for key in data:

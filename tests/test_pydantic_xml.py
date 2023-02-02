@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from pydantic import fields
@@ -52,6 +53,23 @@ def test_parse_render_xml():
 
     result = Model.parse_xml(input_xml)
     assert result == expected_model
+    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+
+    assert output == input_xml
+
+
+def test_parse_render_json():
+    class Model(XmlBaseModel):
+        name: Annotated[str, fields.Field(alias="Name")]
+        age: int
+
+    input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age></Model>'
+
+    expected_json = '{"Model": {"Name": "test", "age": 12}}'
+
+    result = Model.parse_xml(input_xml)
+    assert result.json() == expected_json
+    assert result.dict() == json.loads(expected_json)
     output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
 
     assert output == input_xml
