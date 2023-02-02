@@ -13,6 +13,10 @@ format:
 	poetry run black pydantic_xml tests
 	poetry run isort pydantic_xml tests
 
+check:
+	mypy pydantic_xml
+	pylint -E pydantic_xml
+
 build:
 	poetry build
 

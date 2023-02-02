@@ -14,7 +14,7 @@ class ListItem(XmlBaseModel):
 class SubModel(XmlBaseModel):
     age: int
     some_value: Optional[str]
-    items: Optional[List[ListItem]]
+    items: Annotated[Optional[List[ListItem]], fields.Field(alias="ListItem")]
 
 
 class Model(XmlBaseModel):
@@ -86,6 +86,15 @@ def test_parse_render_xml_nulls():
 def test_parse_render_xml_no_nulls_nested():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel><age>12</age><ListItem><age>12</age></ListItem><ListItem><age>12</age><some_value>test</some_value></ListItem></SubModel></Model>'
     result = Model.parse_xml(input_xml)
+    expected_model = Model(
+        name="test",
+        age=12,
+        optional_field=SubModel(
+            age=12,
+            items=[ListItem(age=12), ListItem(age=12, some_value="test")],
+        ),
+    )
+    assert result == expected_model
     output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
     assert output == input_xml
 
