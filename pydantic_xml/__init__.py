@@ -6,7 +6,7 @@ import xmltodict
 from pydantic import BaseModel
 from pydantic.fields import ModelField
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 
 class XmlAttribute(BaseModel):
