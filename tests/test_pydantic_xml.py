@@ -3,7 +3,7 @@ from typing import Annotated, List, Optional
 
 from pydantic import fields
 
-from pydantic_xml import XmlAttribute, XmlBaseModel
+from pydantic_xml import XmlAttribute, XmlBaseModel, remove_nulls_from_dict
 
 
 class ListItem(XmlBaseModel):
@@ -91,7 +91,7 @@ def test_parse_render_xml_no_nulls_nested():
 
 
 def test_parse_render_xml_nested_attributes():
-    input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel SomeId="1234"><age>12</age><ListItem><age>12</age></ListItem><ListItem id="1234" name="test"><age>12</age><some_value>test</some_value></ListItem></SubModel></Model>'
+    input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel SomeId="1234"><age>12</age><ListItem><age>12</age></ListItem><ListItem id="1234" name="test"><age>12</age><some_value>test</some_value></ListItem><ListItem><age>12</age></ListItem></SubModel></Model>'
     result = Model.parse_xml(input_xml)
     output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
     assert output == input_xml
@@ -119,3 +119,20 @@ def test_nested_models():
     )
     model = Model.parse_xml(input_xml)
     assert model == expected_model
+
+
+def test_remove_nulls():
+    data = {
+        "attr1": 12,
+        "attr2": None,
+        "attr3": {
+            "attr3.1": None,
+            "attr3.2": [{"list": "value", "none": None}, {"list": "value2"}],
+        },
+    }
+    expected_response = {
+        "attr1": 12,
+        "attr3": {"attr3.2": [{"list": "value"}, {"list": "value2"}]},
+    }
+    remove_nulls_from_dict(data)
+    assert data == expected_response

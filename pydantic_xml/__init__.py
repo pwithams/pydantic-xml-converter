@@ -38,9 +38,9 @@ class XmlBaseModel(BaseModel):
         full_dict = base_dict
         if add_root:
             full_dict = {self.get_root_name(): base_dict}
+        if remove_nulls:
+            remove_nulls_from_dict(full_dict)
         if not xml:
-            if remove_nulls:
-                remove_nulls_from_dict(full_dict)
             return full_dict
         if not by_alias:
             raise ValueError("Cannot use by_alias=True with xml=True")
@@ -57,9 +57,6 @@ class XmlBaseModel(BaseModel):
                     foundation = base_dict[model_field.alias]
                 base_dict[model_field.alias] = foundation
                 foundation.update(self._xml_attributes[attribute_key].copy().dict())
-
-        if remove_nulls:
-            remove_nulls_from_dict(full_dict)
         return full_dict
 
     def json(self, pretty=False, **kwargs) -> str:
@@ -130,6 +127,9 @@ def remove_nulls_from_dict(data: Dict[Any, Any]) -> None:
     for key, value in list(data.items()):
         if value is None:
             del data[key]
-            continue
-        if isinstance(value, dict):
+        elif isinstance(value, dict):
             remove_nulls_from_dict(data[key])
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    remove_nulls_from_dict(item)
