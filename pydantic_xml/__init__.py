@@ -26,16 +26,15 @@ class XmlBaseModel(BaseModel):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._xml_attributes: Dict[str, list[XmlAttribute]] = defaultdict(list)
+        object.__setattr__(self, "_xml_attributes", defaultdict(list))
 
     class Config:
         allow_population_by_field_name = True
-        extra = "allow"
 
     def dict(
         self, xml=False, remove_nulls=True, add_root=False, by_alias=True, **kwargs
     ) -> Dict[str, Any]:
-        base_dict = super().dict(by_alias=by_alias, **kwargs)
+        base_dict = super().dict(by_alias=by_alias, **kwargs).copy()
         del base_dict["_xml_attributes"]
         full_dict = base_dict
         if add_root:
@@ -77,6 +76,7 @@ class XmlBaseModel(BaseModel):
             try:
                 if isinstance(model_field.outer_type_(), list):
                     fields.append(model_field.alias)
+                    fields += model_field.type_.get_list_fields()
             except ValidationError:
                 pass
 
@@ -95,7 +95,8 @@ class XmlBaseModel(BaseModel):
             data = data[key]
             break
         data, attribute_details = remove_attributes(data)
-        dicts_to_list(data, cls.get_list_fields())
+        dicts_to_list(data, cls.get_list_fields(), attribute_details)
+        remove_nulls_from_dict(data)
         model = cls.parse_obj(data)
         for alias, attr_list in attribute_details.items():
             for attr in attr_list:
@@ -148,18 +149,29 @@ def add_attributes_to_dict(
         else:
             if attribute_key:
                 foundation = {"#text": str(foundation)}
-                for attribute in xml_attributes[attribute_key]:
+                for attribute in xml_attributes[attr_path.strip(".")]:
                     foundation.update(attribute.copy().dict())
 
         data[model_field.alias] = foundation
 
 
-def dicts_to_list(data: Dict[Any, Any], key_names: list[str]) -> None:
+def dicts_to_list(
+    data: Dict[Any, Any], key_names: list[str], attribute_details
+) -> None:
     for key, value in data.items():
         if isinstance(value, dict):
-            dicts_to_list(value, key_names)
+            dicts_to_list(value, key_names, attribute_details)
             if key in key_names:
                 data[key] = [value]
+                for attribute_key in list(attribute_details.keys()):
+                    if f"{key}." in attribute_key:
+                        attribute_details[
+                            attribute_key.replace(f"{key}.", f"{key}[0].")
+                        ] = attribute_details[attribute_key]
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    dicts_to_list(item, key_names, attribute_details)
 
 
 def remove_attributes(
@@ -168,6 +180,12 @@ def remove_attributes(
     """Removes xmltodict attribute structure to allow pydantic parsing"""
     new_data = {}
     attribute_details: Dict[str, list[XmlAttribute]] = defaultdict(list)
+    non_attr_count = 0
+    for key in data:
+        if not key.startswith("@"):
+            non_attr_count += 1
+    if non_attr_count == 0:
+        return None, attribute_details
     for key in data:
         if key.startswith("@"):
             if not parent_path:
@@ -210,7 +228,7 @@ def remove_attributes(
 
 def remove_nulls_from_dict(data: Dict[Any, Any]) -> None:
     for key, value in list(data.items()):
-        if value is None:
+        if value is None or value == {}:
             del data[key]
         elif isinstance(value, dict):
             remove_nulls_from_dict(data[key])
