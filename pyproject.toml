@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-xml-extension"
-version = "0.0.8"
+version = "0.0.9"
 description = ""
 authors = ["Patrick Withams <pwithams@gmail.com>"]
 readme = "README.md"
