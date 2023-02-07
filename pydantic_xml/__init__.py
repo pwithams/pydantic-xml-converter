@@ -77,7 +77,7 @@ class XmlBaseModel(BaseModel):
                 if isinstance(model_field.outer_type_(), list):
                     fields.append(model_field.alias)
                     fields += model_field.type_.get_list_fields()
-            except ValidationError:
+            except (ValidationError, TypeError):
                 pass
 
             try:
