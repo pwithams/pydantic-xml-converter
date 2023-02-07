@@ -6,7 +6,7 @@ import xmltodict
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import ModelField
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 
 class XmlAttribute(BaseModel):
