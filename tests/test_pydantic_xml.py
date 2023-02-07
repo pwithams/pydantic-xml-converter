@@ -25,6 +25,22 @@ class Model(px.XmlBaseModel):
 
 def test_render_xml():
     m = Model(Name="test", age=12)
+    print(m)
+    m.set_xml_attribute("Name", px.XmlAttribute(key="id", value="123"))
+    m.set_xml_attribute("age", px.XmlAttribute(key="custom", value="value"))
+    xml_string = m.xml()
+    xml_string = xml_string.replace(
+        '<?xml version="1.0" encoding="utf-8"?>', ""
+    ).strip()
+    expected_xml = (
+        '<Model><Name id="123">test</Name><age custom="value">12</age></Model>'
+    )
+    assert xml_string == expected_xml
+
+
+def test_render_xml_no_alias():
+    m = Model(Name="test", age=12)
+    print(m)
     m.set_xml_attribute("name", px.XmlAttribute(key="id", value="123"))
     m.set_xml_attribute("age", px.XmlAttribute(key="custom", value="value"))
     xml_string = m.xml()
@@ -158,5 +174,5 @@ def test_dicts_to_list():
         "attr2": [{"some_data": 123}],
         "attr3": [{"some_data2": [{"test": 123}]}],
     }
-    px.dicts_to_list(data, ["attr2", "attr3", "some_data2"])
+    px.dicts_to_list(data, ["attr2", "attr3", "some_data2"], {})
     assert data == expected_data

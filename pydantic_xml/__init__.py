@@ -121,7 +121,7 @@ def add_attributes_to_dict(
         elif f"{path}{model_field.name}" in xml_attributes:
             attribute_key = model_field.name
 
-        attr_path = f"{path}{model_field.alias}."
+        attr_path = f"{path}{attribute_key}."
         if isinstance(foundation, dict):
             add_attributes_to_dict(
                 model_field.type_.__fields__.values(),
