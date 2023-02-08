@@ -1,23 +1,28 @@
 import json
 from typing import Annotated, List, Optional
 
-from pydantic import fields
+from pydantic import BaseModel, fields
 
-import pydantic_xml as px
+import pydantic_xml
 
 
-class ListItem(px.XmlBaseModel):
+class CustomBaseModel(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
+
+
+class ListItem(CustomBaseModel):
     age: int
     some_value: Optional[str]
 
 
-class SubModel(px.XmlBaseModel):
+class SubModel(CustomBaseModel):
     age: int
     some_value: Optional[str]
     items: Annotated[Optional[List[ListItem]], fields.Field(alias="ListItem")]
 
 
-class Model(px.XmlBaseModel):
+class Model(CustomBaseModel):
     name: Annotated[str, fields.Field(alias="Name")]
     age: int
     optional_field: Annotated[Optional[SubModel], fields.Field(alias="SubModel")]
@@ -25,10 +30,14 @@ class Model(px.XmlBaseModel):
 
 def test_render_xml():
     m = Model(Name="test", age=12)
-    print(m)
-    m.set_xml_attribute("Name", px.XmlAttribute(key="id", value="123"))
-    m.set_xml_attribute("age", px.XmlAttribute(key="custom", value="value"))
-    xml_string = m.xml()
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    converter.set_xml_attribute(
+        "Name", pydantic_xml.XmlAttribute(key="id", value="123")
+    )
+    converter.set_xml_attribute(
+        "age", pydantic_xml.XmlAttribute(key="custom", value="value")
+    )
+    xml_string = converter.generate_xml(m)
     xml_string = xml_string.replace(
         '<?xml version="1.0" encoding="utf-8"?>', ""
     ).strip()
@@ -40,10 +49,15 @@ def test_render_xml():
 
 def test_render_xml_no_alias():
     m = Model(Name="test", age=12)
-    print(m)
-    m.set_xml_attribute("name", px.XmlAttribute(key="id", value="123"))
-    m.set_xml_attribute("age", px.XmlAttribute(key="custom", value="value"))
-    xml_string = m.xml()
+
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    converter.set_xml_attribute(
+        "name", pydantic_xml.XmlAttribute(key="id", value="123")
+    )
+    converter.set_xml_attribute(
+        "age", pydantic_xml.XmlAttribute(key="custom", value="value")
+    )
+    xml_string = converter.generate_xml(m)
     xml_string = xml_string.replace(
         '<?xml version="1.0" encoding="utf-8"?>', ""
     ).strip()
@@ -56,25 +70,31 @@ def test_render_xml_no_alias():
 def test_parse_xml():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age></Model>'
 
+    converter = pydantic_xml.PydanticXmlConverter("Model")
     expected_model = Model(
         name="test",
         age=12,
     )
-    result = Model.parse_xml(input_xml)
-    assert result == expected_model
+    model = converter.parse_xml(input_xml, Model)
+    assert model == expected_model
 
 
 def test_parse_render_xml():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age></Model>'
 
+    converter = pydantic_xml.PydanticXmlConverter("Model")
     expected_model = Model(
         name="test",
         age=12,
     )
 
-    result = Model.parse_xml(input_xml)
-    assert result == expected_model
-    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    model = converter.parse_xml(input_xml, Model)
+    assert model == expected_model
+    output = (
+        converter.generate_xml(model)
+        .replace('<?xml version="1.0" encoding="utf-8"?>', "")
+        .strip()
+    )
 
     assert output == input_xml
 
@@ -82,15 +102,16 @@ def test_parse_render_xml():
 def test_parse_render_xml_nulls():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age></Model>'
 
+    converter = pydantic_xml.PydanticXmlConverter("Model")
     expected_model = Model(
         name="test",
         age=12,
     )
 
-    result = Model.parse_xml(input_xml)
-    assert result == expected_model
+    model = converter.parse_xml(input_xml, Model)
+    assert model == expected_model
     output = (
-        result.xml(remove_nulls=False)
+        converter.generate_xml(model, remove_nulls=False)
         .replace('<?xml version="1.0" encoding="utf-8"?>', "")
         .strip()
     )
@@ -101,7 +122,8 @@ def test_parse_render_xml_nulls():
 
 def test_parse_render_xml_no_nulls_nested():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel><age>12</age><ListItem><age>12</age></ListItem><ListItem><age>12</age><some_value>test</some_value></ListItem></SubModel></Model>'
-    result = Model.parse_xml(input_xml)
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    model = converter.parse_xml(input_xml, Model)
     expected_model = Model(
         name="test",
         age=12,
@@ -110,15 +132,24 @@ def test_parse_render_xml_no_nulls_nested():
             items=[ListItem(age=12), ListItem(age=12, some_value="test")],
         ),
     )
-    assert result == expected_model
-    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    assert model == expected_model
+    output = (
+        converter.generate_xml(model)
+        .replace('<?xml version="1.0" encoding="utf-8"?>', "")
+        .strip()
+    )
     assert output == input_xml
 
 
 def test_parse_render_xml_nested_attributes():
     input_xml = '<Model><Name id="123">test</Name><age custom="value">12</age><SubModel SomeId="1234"><age>12</age><ListItem><age>12</age></ListItem><ListItem id="1234" name="test"><age>12</age><some_value>test</some_value></ListItem><ListItem><age>12</age></ListItem></SubModel></Model>'
-    result = Model.parse_xml(input_xml)
-    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    model = converter.parse_xml(input_xml, Model)
+    output = (
+        converter.generate_xml(model)
+        .replace('<?xml version="1.0" encoding="utf-8"?>', "")
+        .strip()
+    )
     assert output == input_xml
 
 
@@ -127,10 +158,15 @@ def test_parse_render_json():
 
     expected_json = '{"Model": {"Name": "test", "age": 12}}'
 
-    result = Model.parse_xml(input_xml)
-    assert result.json(add_root=True) == expected_json
-    assert result.dict(add_root=True) == json.loads(expected_json)
-    output = result.xml().replace('<?xml version="1.0" encoding="utf-8"?>', "").strip()
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    model = converter.parse_xml(input_xml, Model)
+    assert converter.generate_json(model, add_root=True) == expected_json
+    assert converter.generate_dict(model, add_root=True) == json.loads(expected_json)
+    output = (
+        converter.generate_xml(model)
+        .replace('<?xml version="1.0" encoding="utf-8"?>', "")
+        .strip()
+    )
 
     assert output == input_xml
 
@@ -142,7 +178,8 @@ def test_nested_models():
         age=12,
         optional_field=SubModel(age=34),
     )
-    model = Model.parse_xml(input_xml)
+    converter = pydantic_xml.PydanticXmlConverter("Model")
+    model = converter.parse_xml(input_xml, Model)
     assert model == expected_model
 
 
@@ -159,7 +196,7 @@ def test_remove_nulls():
         "attr1": 12,
         "attr3": {"attr3.2": [{"list": "value"}, {"list": "value2"}]},
     }
-    px.remove_nulls_from_dict(data)
+    pydantic_xml.remove_nulls_from_dict(data)
     assert data == expected_response
 
 
@@ -174,5 +211,5 @@ def test_dicts_to_list():
         "attr2": [{"some_data": 123}],
         "attr3": [{"some_data2": [{"test": 123}]}],
     }
-    px.dicts_to_list(data, ["attr2", "attr3", "some_data2"], {})
+    pydantic_xml.dicts_to_list(data, ["attr2", "attr3", "some_data2"], {})
     assert data == expected_data

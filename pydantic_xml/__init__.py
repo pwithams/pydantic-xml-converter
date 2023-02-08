@@ -10,8 +10,6 @@ __version__ = "0.0.11"
 
 
 class XmlAttribute(BaseModel):
-    """Represents an xmltodict attribute."""
-
     key: str
     value: str
 
@@ -21,86 +19,64 @@ class XmlAttribute(BaseModel):
         }
 
 
-class XmlBaseModel(BaseModel):
-    """Represents an xmltodict attribute."""
+class PydanticXmlConverter:
+    def __init__(self, root_name) -> None:
+        self.xml_attributes: Dict[str, list[XmlAttribute]] = defaultdict(list)
+        self.root_name: str = root_name
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        object.__setattr__(self, "_xml_attributes", defaultdict(list))
-
-    class Config:
-        allow_population_by_field_name = True
-
-    def dict(
-        self, xml=False, remove_nulls=True, add_root=False, by_alias=True, **kwargs
+    def generate_dict(
+        self,
+        base_model: BaseModel,
+        xml=False,
+        remove_nulls=True,
+        add_root=False,
+        by_alias=True,
+        **kwargs,
     ) -> Dict[str, Any]:
-        base_dict = super().dict(by_alias=by_alias, **kwargs).copy()
-        del base_dict["_xml_attributes"]
+        base_dict = base_model.dict(by_alias=by_alias, **kwargs).copy()
         full_dict = base_dict
         if add_root:
-            full_dict = {self.get_root_name(): base_dict}
+            full_dict = {self.root_name: base_dict}
         if remove_nulls:
             remove_nulls_from_dict(full_dict)
         if not xml:
             return full_dict
         add_attributes_to_dict(
-            list(self.__fields__.values()), base_dict, self._xml_attributes
+            list(base_model.__fields__.values()), base_dict, self.xml_attributes
         )
         if not by_alias:
             raise ValueError("Cannot use by_alias=True with xml=True")
         return full_dict
 
-    def json(self, pretty=False, **kwargs) -> str:
+    def generate_json(self, base_model: BaseModel, pretty=False, **kwargs) -> str:
         indent = None
         if pretty:
             indent = 2
-        return json.dumps(self.dict(**kwargs), indent=indent)
+        return json.dumps(self.generate_dict(base_model, **kwargs), indent=indent)
 
-    def xml(self, pretty=False, **kwargs) -> str:
-        model_as_dict = self.dict(xml=True, add_root=True, **kwargs)
+    def generate_xml(self, base_model: BaseModel, pretty=False, **kwargs) -> str:
+        model_as_dict = self.generate_dict(
+            base_model, xml=True, add_root=True, **kwargs
+        )
         return xmltodict.unparse(model_as_dict, pretty=pretty)
 
     def set_xml_attribute(self, alias: str, attribute: XmlAttribute) -> None:
-        self._xml_attributes[alias].append(attribute)
+        self.xml_attributes[alias].append(attribute)
 
-    def get_root_name(self) -> str:
-        root_name = self.__class__.__name__
-        if hasattr(self.Config(), "xml_root_name"):
-            root_name = self.Config().xml_root_name  # type: ignore
-        return root_name
-
-    @classmethod
-    def get_list_fields(cls):
-        fields = []
-        for model_field in cls.__fields__.values():
-            try:
-                if isinstance(model_field.outer_type_(), list):
-                    fields.append(model_field.alias)
-                    fields += model_field.type_.get_list_fields()
-            except (ValidationError, TypeError):
-                pass
-
-            try:
-                if issubclass(model_field.outer_type_, BaseModel):
-                    fields += model_field.type_.get_list_fields()
-            except TypeError:
-                pass
-        return fields
-
-    @classmethod
-    def parse_xml(cls, raw: str) -> "XmlBaseModel":
+    def parse_xml(self, raw: str, cls: type) -> BaseModel:
         data = xmltodict.parse(raw)
         # remove root element
         for key in data:
             data = data[key]
             break
         data, attribute_details = remove_attributes(data)
-        dicts_to_list(data, cls.get_list_fields(), attribute_details)
+        dicts_to_list(data, get_list_fields(cls), attribute_details)
         remove_nulls_from_dict(data)
-        model = cls.parse_obj(data)
+        self.xml_attributes = defaultdict(list)
         for alias, attr_list in attribute_details.items():
             for attr in attr_list:
-                model.set_xml_attribute(alias, attr)
+                self.set_xml_attribute(alias, attr)
+        model = cls.parse_obj(data)
         return model
 
 
@@ -236,3 +212,21 @@ def remove_nulls_from_dict(data: Dict[Any, Any]) -> None:
             for item in value:
                 if isinstance(item, dict):
                     remove_nulls_from_dict(item)
+
+
+def get_list_fields(cls):
+    fields = []
+    for model_field in cls.__fields__.values():
+        try:
+            if isinstance(model_field.outer_type_(), list):
+                fields.append(model_field.alias)
+                fields += get_list_fields(model_field.type_)
+        except (ValidationError, TypeError):
+            pass
+
+        try:
+            if issubclass(model_field.outer_type_, BaseModel):
+                fields += get_list_fields(model_field.type_)
+        except TypeError:
+            pass
+    return fields
