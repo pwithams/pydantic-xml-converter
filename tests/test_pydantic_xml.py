@@ -1,9 +1,14 @@
 import json
+import re
 from typing import Annotated, List, Optional
 
 from pydantic import BaseModel, fields
 
 import pydantic_xml
+
+
+def strip_xml(xml_string):
+    return re.sub(r">\s*<", ">\n<", xml_string.replace("\n", "")).strip()
 
 
 class CustomBaseModel(BaseModel):
@@ -213,3 +218,59 @@ def test_dicts_to_list():
     }
     pydantic_xml.dicts_to_list(data, ["attr2", "attr3", "some_data2"], {})
     assert data == expected_data
+
+
+def test_random_xml():
+    xml_string = """<?xml version="1.0" encoding="utf-8"?>
+    <root>
+      <monkey fat="beginning">-1849338856</monkey>
+      <of>
+        <changing alive="station">
+          <sang rays="speed">203723125.97784948</sang>
+          <birth maybe="sweet">279884000</birth>
+          <calm rather="beginning">attack</calm>
+          <mass them="afraid">needle</mass>
+          <one poem="excited">arrangement</one>
+          <another probably="rise">197055265.1714635</another>
+        </changing>
+        <simple open="running">orbit</simple>
+        <basket>-797888089</basket>
+        <turn>-737700207</turn>
+        <principal>-1187301227.2417045</principal>
+        <bean sold="mean">-456432991</bean>
+      </of>
+      <slow>-400726633</slow>
+      <dress>-832880860.8035483</dress>
+      <themselves>1106985214.2440586</themselves>
+      <necessary hello="gather">-1232936066</necessary>
+    </root>
+    """
+
+    class Changing(BaseModel):
+        sang: float
+        birth: int
+        calm: str
+        mass: str
+        one: str
+        another: float
+
+    class Of(BaseModel):
+        changing: Changing
+        simple: str
+        basket: int
+        turn: int
+        principal: float
+        bean: int
+
+    class Root(BaseModel):
+        monkey: int
+        of: Of
+        slow: int
+        dress: float
+        themselves: float
+        necessary: int
+
+    converter = pydantic_xml.PydanticXmlConverter("root")
+    root_model = converter.parse_xml(xml_string, Root)
+    output_string = converter.generate_xml(root_model, pretty=True)
+    assert strip_xml(output_string) == strip_xml(xml_string)

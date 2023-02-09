@@ -92,12 +92,14 @@ def add_attributes_to_dict(
 
         foundation = data[model_field.alias]
         attribute_key = None
+        if f"{path}{model_field.name}" in xml_attributes:
+            attribute_key = model_field.name
         if f"{path}{model_field.alias}" in xml_attributes:
             attribute_key = model_field.alias
-        elif f"{path}{model_field.name}" in xml_attributes:
-            attribute_key = model_field.name
 
-        attr_path = f"{path}{attribute_key}."
+        attr_path = f"{path}{model_field.name}."
+        if attribute_key:
+            attr_path = f"{path}{attribute_key}."
         if isinstance(foundation, dict):
             add_attributes_to_dict(
                 model_field.type_.__fields__.values(),
