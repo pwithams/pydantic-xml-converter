@@ -8,7 +8,12 @@ import pydantic_xml
 
 
 def strip_xml(xml_string):
-    return re.sub(r">\s*<", ">\n<", xml_string.replace("\n", "")).strip()
+    return (
+        re.sub(r">\s*<", ">\n<", xml_string.replace("\n", ""))
+        .strip()
+        .replace("<![CDATA[", "")
+        .replace("]]>\n", "")
+    )
 
 
 class CustomBaseModel(BaseModel):
@@ -220,7 +225,7 @@ def test_dicts_to_list():
     assert data == expected_data
 
 
-def test_random_xml():
+def test_complex_xml():
     xml_string = """<?xml version="1.0" encoding="utf-8"?>
     <root>
       <monkey fat="beginning">-1849338856</monkey>
@@ -269,6 +274,66 @@ def test_random_xml():
         dress: float
         themselves: float
         necessary: int
+
+    converter = pydantic_xml.PydanticXmlConverter("root")
+    root_model = converter.parse_xml(xml_string, Root)
+    output_string = converter.generate_xml(root_model, pretty=True)
+    assert strip_xml(output_string) == strip_xml(xml_string)
+
+
+def test_random_xml():
+    xml_string = """<?xml version="1.0" encoding="utf-8"?>
+    <root>
+      <add next="snow">bag</add>
+      <race>bee
+        <![CDATA[extra worth shout rubbed twelve lungs spell]]>
+      </race>
+      <fought experience="today">won</fought>
+      <equal excitement="book">1583543849.9250996
+        <![CDATA[apple parent lesson]]>
+      </equal>
+      <soil stove="signal">
+        <stay blue="edge">driving</stay>
+        <property>-644236952</property>
+        <worth>
+          <seems>birthday</seems>
+          <band>topic</band>
+          <later>older</later>
+          <learn noted="pleasant">-973993569.1786666</learn>
+          <flies compare="rocky">523866387.8271532</flies>
+          <grandfather product="outline">not</grandfather>
+        </worth>
+        <mile>whole</mile>
+        <organization someone="comfortable">-1158370277.6719792</organization>
+        <current>-456336082</current>
+      </soil>
+      <ball touch="dig">recall</ball>
+    </root>
+    """
+
+    class Worth(BaseModel):
+        seems: str
+        band: str
+        later: str
+        learn: float
+        flies: float
+        grandfather: str
+
+    class Soil(BaseModel):
+        stay: str
+        property: int
+        worth: Worth
+        mile: str
+        organization: float
+        current: int
+
+    class Root(BaseModel):
+        add: str
+        race: str
+        fought: str
+        equal: str
+        soil: Soil
+        ball: str
 
     converter = pydantic_xml.PydanticXmlConverter("root")
     root_model = converter.parse_xml(xml_string, Root)
